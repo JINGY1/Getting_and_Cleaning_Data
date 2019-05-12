@@ -15,7 +15,7 @@ filepath <- paste(path,"/UCI HAR Dataset", sep='')
 # "activity_labels.txt" : 6 rows, 2 columns (Links the class labels with their activity name, such as WALKING, WALKING_UPSTAIRS, WALKING_DOWNSTAIRS, SITTING, STANDING, LAYING)
 activity_label <- fread(file.path(filepath,"activity_labels.txt"), col.names=c("label","activity"))
 # "features.txt" : 561 rows, 2 columns (List of all features)
-features <- fread(file.path(filepath,"features.txt"), col.names=c("id","feature_nm"))
+features <- fread(file.path(filepath,"features.txt"), col.names=c("id","feature_nm")) # feature_nm = feature name
 # Extracts only the measurements on the mean and standard deviation for each measurement.
 features_filter <- grep("(mean|std)\\(\\)", features[, feature_nm])
 measurements <- features[features_filter, feature_nm] 
@@ -24,27 +24,39 @@ measurements <- gsub('[()]', '', measurements)
 
 
 # load train datasets
-train <- fread(file.path(filepath, "train/X_train.txt"))[, features_filter, with = FALSE]
+# train: 7352 rows, 66 columns (Training set)
+train <- fread(file.path(filepath, "train/X_train.txt"))[, features_filter, with = FALSE] 
 data.table::setnames(train, colnames(train), measurements)
+# train_activity: 7352 rows, 1 column (Training labels)
 train_activity <- fread(file.path(filepath, "train/Y_train.txt"), col.names = c("activity"))
+# train_subject: 7352 rows, 1 column (Each row identifies the subject who performed the activity for each window sample. Its range is from 1 to 30)
 train_subject <- fread(file.path(filepath, "train/subject_train.txt"), col.names = c("subject_id"))
+# train_data: 7352 rows, 68 columns
 train_data <- cbind(train_subject, train_activity, train)
 
 
 # load test datasets
+# test: 2947 rows, 66 columns (Test set)
 test <- fread(file.path(filepath, "test/X_test.txt"))[, features_filter, with = FALSE]
 data.table::setnames(test, colnames(test), measurements)
+# test_activity: 2947 rows, 1 column (Test labels)
 test_activity <- fread(file.path(filepath, "test/Y_test.txt"), col.names = c("activity"))
+# test_subject: 2947 rows, 1 column
 test_subject <- fread(file.path(filepath, "test/subject_test.txt"), col.names = c("subject_id"))
+# test_data: 2947 rows, 68 columns
 test_data <- cbind(test_subject, test_activity, test)
 
 
 # merge
+# Merges the training and the test sets to create one data set.
 merge_data <- rbind(train_data, test_data) 
+# Set activity as Factor w/ 6 levels "WALKING","WALKING_UPSTAIRS",.. 
 merge_data[["activity"]] <- factor(merge_data[, activity], levels = activity_label[["label"]], labels = activity_label[["activity"]])
+# Set subject_id as Factor w/ 30 levels "1","2","3","4",..
 merge_data[["subject_id"]] <- as.factor(merge_data[, subject_id])
+# Reshape data
 merge_data <- reshape2::melt(data = merge_data, id = c("subject_id", "activity"))
 merge_data <- reshape2::dcast(data = merge_data, subject_id + activity ~ variable, fun.aggregate = mean)
 
-# create new datasets
+# create new datasets named "tidy_data.txt"
 data.table::fwrite(x = merge_data, file = "tidy_data.txt", quote = FALSE)
